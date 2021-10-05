@@ -27,6 +27,9 @@ class Message:
     def from_json(message_type: str, json_str: str) -> Message:
         return Message(message_type, json.loads(json_str))
 
+    def __repr__(self):
+        return "Message({}, {})".format(self._type, self._data)
+
 
 class Context(object):
     def __init__(self, time: float):
@@ -50,7 +53,7 @@ class Context(object):
         if not isinstance(delay, (int, float)):
             raise TypeError('delay argument has to be int or float, not {}'.format(type(delay)))
         self._set_timers.append((timer_id, delay))
-    
+
     def cancel_timer(self, timer_id: str):
         if not isinstance(timer_id, str):
             raise TypeError('timer_id argument has to be str, not {}'.format(type(timer_id)))
