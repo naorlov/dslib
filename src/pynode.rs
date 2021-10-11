@@ -4,7 +4,7 @@ use std::path::Path;
 use std::rc::Rc;
 use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyTuple};
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
 use crate::node::{Node, Context};
 
@@ -24,14 +24,18 @@ impl JsonMessage {
     }
 
     pub fn from<T>(tip: &str, data: &T) -> Self
-    where
-        T: ?Sized + Serialize,
+        where
+            T: ?Sized + Serialize,
     {
         JsonMessage {
             tip: tip.to_string(),
             // TODO: use regex
             data: serde_json::to_string_pretty(data).unwrap().replace("\n", "").replace("  ", ""),
         }
+    }
+
+    pub fn to<'de, T>(&'de self) -> Box<T> where T: ?Sized + Deserialize<'de> {
+        Box::new(serde_json::from_str(&self.data).unwrap())
     }
 }
 
@@ -71,11 +75,11 @@ impl PyNodeFactory {
         let node = Python::with_gil(|py| -> PyObject {
             self.node_class.call1(py, args).unwrap().to_object(py)
         });
-        PyNode { 
-            id: node_id.to_string(), 
-            node, 
-            msg_class: self.msg_class.clone(), 
-            ctx_class: self.ctx_class.clone(), 
+        PyNode {
+            id: node_id.to_string(),
+            node,
+            msg_class: self.msg_class.clone(),
+            ctx_class: self.ctx_class.clone(),
         }
     }
 }
@@ -116,7 +120,7 @@ impl Node<JsonMessage> for PyNode {
     fn on_message(&mut self, msg: JsonMessage, from: String, ctx: &mut Context<JsonMessage>) {
         Python::with_gil(|py| {
             let py_msg = self.msg_class.call_method1(py, "from_json", (msg.tip, msg.data)).unwrap();
-            let py_ctx = self.ctx_class.call1(py, (ctx.time(),)).unwrap();
+            let py_ctx = self.ctx_class.call1(py, (ctx.time(), )).unwrap();
             self.node
                 .call_method1(py, "on_message", (py_msg, from, &py_ctx))
                 .map_err(|e| log_python_error(e, py))
@@ -128,18 +132,18 @@ impl Node<JsonMessage> for PyNode {
     fn on_local_message(&mut self, msg: JsonMessage, ctx: &mut Context<JsonMessage>) {
         Python::with_gil(|py| {
             let py_msg = self.msg_class.call_method1(py, "from_json", (msg.tip, msg.data)).unwrap();
-            let py_ctx = self.ctx_class.call1(py, (ctx.time(),)).unwrap();
+            let py_ctx = self.ctx_class.call1(py, (ctx.time(), )).unwrap();
             self.node
                 .call_method1(py, "on_local_message", (py_msg, &py_ctx))
                 .map_err(|e| log_python_error(e, py))
                 .unwrap();
             PyNode::handle_node_actions(ctx, &py_ctx, py);
         });
-    }    
+    }
 
     fn on_timer(&mut self, timer: String, ctx: &mut Context<JsonMessage>) {
         Python::with_gil(|py| {
-            let py_ctx = self.ctx_class.call1(py, (ctx.time(),)).unwrap();
+            let py_ctx = self.ctx_class.call1(py, (ctx.time(), )).unwrap();
             self.node
                 .call_method1(py, "on_timer", (timer, &py_ctx))
                 .map_err(|e| log_python_error(e, py))
