@@ -45,7 +45,7 @@ impl<'a, 'b, 'c, M: Debug + Clone> Context<'a, 'b, 'c, M> {
             self.ctx.emit(event, dest, 0.0);
         } else {
             let event = SysEvent::MessageSend { msg, src: self.ctx.id.clone(), dest };
-            self.ctx.emit(event, ActorId::from("net"), 0.0);
+            self.ctx.emit(event, ActorId::from("net"), 1.0);
         }
     }
 
