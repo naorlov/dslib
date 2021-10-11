@@ -4,7 +4,6 @@ use std::fmt::Debug;
 use crate::sim::{Actor, ActorContext};
 use crate::system::SysEvent;
 
-
 pub struct Network {
     min_delay: f64,
     max_delay: f64,
@@ -20,7 +19,7 @@ pub struct Network {
 
 impl Network {
     pub fn new() -> Self {
-        Self { 
+        Self {
             min_delay: 1.,
             max_delay: 1.,
             drop_rate: 0.,
@@ -119,10 +118,28 @@ impl<M: Debug + Clone> Actor<SysEvent<M>> for Network {
         match event {
             SysEvent::MessageSend { msg, src, dest } => {
                 if !self.crashed_nodes.contains(&src.to()) {
-                    if ctx.rand() >= self.drop_rate 
-                        && !self.drop_outgoing.contains(&src.to())
-                        && !self.drop_incoming.contains(&dest.to())
-                        && !self.disabled_links.contains(&(src.to(), dest.to())) 
+                    let mut drop = false;
+                    let mut reason: String = "".to_string();
+                    let randvalue = ctx.rand();
+                    if randvalue < self.drop_rate {
+                        reason = "random drop".to_string();
+                        drop = true;
+                    }
+                    if self.drop_outgoing.contains(&src.to()) {
+                        reason = format!("{} is dropping outgoing", &src.to());
+                        drop = true;
+                    }
+                    if self.drop_incoming.contains(&dest.to()) {
+                        reason = format!("{} is dropping incoming", &dest.to());
+                        drop = true;
+                    }
+
+                    if self.disabled_links.contains(&(src.to(), dest.to())) {
+                        reason = format!("link between {} and {} is broken", &src.to(), &dest.to());
+                        drop = true;
+                    }
+
+                    if !drop
                     {
                         let delay = self.min_delay + ctx.rand() * (self.max_delay - self.min_delay);
                         if ctx.rand() < self.corrupt_rate {
@@ -138,8 +155,8 @@ impl<M: Debug + Clone> Actor<SysEvent<M>> for Network {
                             }
                         }
                     } else {
-                        println!("{:>9} {:>10} --x {:<10} {:?} <-- message dropped",
-                                 "!!!", src.to(), dest.to(), msg);
+                        println!("{:>9} {:>10} --x {:<10} {:?} <-- {}",
+                                 "!!!", src.to(), dest.to(), msg, &reason);
                     }
                 } else {
                     println!("!!! Discarded message from crashed node {:?}", msg);
