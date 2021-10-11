@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import abc
 import json
 import random
@@ -24,11 +25,8 @@ class Message:
         self._data.pop(key, None)
 
     @staticmethod
-    def from_json(message_type: str, json_str: str) -> Message:
+    def from_json(message_type: str, json_str: str) -> "Message":
         return Message(message_type, json.loads(json_str))
-
-    def __repr__(self):
-        return "Message({}, {})".format(self._type, self._data)
 
 
 class Context(object):
@@ -41,7 +39,7 @@ class Context(object):
 
     def send(self, msg: Message, to: str):
         if not isinstance(to, str):
-            raise TypeError('to argument has to be string, not {}'.format(type(to)))
+            raise TypeError("to argument has to be string, not {}".format(type(to)))
         self._sent_messages.append((msg.type, json.dumps(msg._data), to))
 
     def send_local(self, msg: Message):
@@ -49,14 +47,20 @@ class Context(object):
 
     def set_timer(self, timer_id: str, delay: float):
         if not isinstance(timer_id, str):
-            raise TypeError('timer_id argument has to be str, not {}'.format(type(timer_id)))
+            raise TypeError(
+                "timer_id argument has to be str, not {}".format(type(timer_id))
+            )
         if not isinstance(delay, (int, float)):
-            raise TypeError('delay argument has to be int or float, not {}'.format(type(delay)))
+            raise TypeError(
+                "delay argument has to be int or float, not {}".format(type(delay))
+            )
         self._set_timers.append((timer_id, delay))
 
     def cancel_timer(self, timer_id: str):
         if not isinstance(timer_id, str):
-            raise TypeError('timer_id argument has to be str, not {}'.format(type(timer_id)))
+            raise TypeError(
+                "timer_id argument has to be str, not {}".format(type(timer_id))
+            )
         self._canceled_timers.append(timer_id)
 
     def time(self) -> float:
