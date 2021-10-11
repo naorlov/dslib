@@ -2,26 +2,26 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::rc::Rc;
+
 use rand::prelude::*;
 
-use crate::sim::*;
-use crate::node::*;
 use crate::net::*;
-
+use crate::node::*;
+use crate::sim::*;
 
 #[derive(Debug, Clone)]
 pub enum SysEvent<M: Debug + Clone> {
-    MessageSend { 
+    MessageSend {
         msg: M,
         src: ActorId,
         dest: ActorId,
     },
-    MessageReceive { 
+    MessageReceive {
         msg: M,
         src: ActorId,
         dest: ActorId,
     },
-    LocalMessageReceive { 
+    LocalMessageReceive {
         msg: M,
     },
     TimerSet {
@@ -30,7 +30,7 @@ pub enum SysEvent<M: Debug + Clone> {
     },
     TimerFired {
         name: String,
-    }
+    },
 }
 
 pub struct System<M: Debug + Clone> {
@@ -52,7 +52,7 @@ impl<M: Debug + Clone + 'static> System<M> {
         let mut sim = Simulation::<SysEvent<M>>::new(seed);
         let net = Rc::new(RefCell::new(Network::new()));
         sim.add_actor("net", net.clone());
-        Self { 
+        Self {
             sim,
             net,
             nodes: HashMap::new(),
@@ -66,7 +66,17 @@ impl<M: Debug + Clone + 'static> System<M> {
         let actor = Rc::new(RefCell::new(NodeActor::new(node)));
         self.sim.add_actor(&id, actor.clone());
         self.nodes.insert(id.clone(), actor);
-        self.node_ids.push(id);
+        self.node_ids.push(id.clone());
+        self.add_timer(&id, "init");
+    }
+
+    pub fn add_timer(&mut self, node_id: &str, name: &str) {
+        self.sim.add_event(
+            SysEvent::TimerFired { name: name.to_string() },
+            ActorId::from(node_id),
+            ActorId::from(node_id),
+            0.0,
+        );
     }
 
     pub fn get_node_ids(&self) -> Vec<String> {
@@ -137,6 +147,12 @@ impl<M: Debug + Clone + 'static> System<M> {
         self.net.borrow_mut().enable_link(from, to);
     }
 
+
+    pub fn enable_between(&mut self, from: &str, to: &str) {
+        self.net.borrow_mut().enable_link(from, to);
+        self.net.borrow_mut().enable_link(to, from);
+    }
+
     pub fn disable_all_links(&mut self) {
         for from in &self.node_ids {
             for to in &self.node_ids {
@@ -170,9 +186,9 @@ impl<M: Debug + Clone + 'static> System<M> {
     }
 
     pub fn send(&mut self, msg: M, src: &str, dest: &str) {
-        let event = SysEvent::MessageSend { 
-            msg, 
-            src: ActorId::from(src), 
+        let event = SysEvent::MessageSend {
+            msg,
+            src: ActorId::from(src),
             dest: ActorId::from(dest),
         };
         self.sim.add_event(event, ActorId::from(src), ActorId::from("net"), 0.0);
@@ -195,6 +211,10 @@ impl<M: Debug + Clone + 'static> System<M> {
 
     pub fn step_until_no_events(&mut self) {
         self.sim.step_until_no_events()
+    }
+
+    pub fn step_while(&mut self, f: fn(&SysEvent<M>) -> bool) {
+        self.sim.step_while(f);
     }
 
     pub fn get_local_events(&self, node_id: &str) -> Vec<LocalEvent<M>> {
