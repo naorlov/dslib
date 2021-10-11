@@ -3,10 +3,10 @@ use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::fmt::{Debug, Error, Formatter};
 use std::rc::Rc;
+
 use decorum::R64;
 use rand::prelude::*;
 use rand_pcg::Pcg64;
-
 
 #[derive(Debug)]
 pub struct EventEntry<E: Debug> {
@@ -71,7 +71,7 @@ pub trait Actor<E: Debug> {
 pub struct CtxEvent<E> {
     event: E,
     dest: ActorId,
-    delay: f64
+    delay: f64,
 }
 
 pub struct ActorContext<'a, E: Debug> {
@@ -89,14 +89,14 @@ impl<'a, E: Debug> ActorContext<'a, E> {
     }
 
     pub fn emit(&mut self, event: E, dest: ActorId, delay: f64) -> u64 {
-        let entry = CtxEvent{ event, dest, delay };
+        let entry = CtxEvent { event, dest, delay };
         self.events.push(entry);
         self.next_event_id += 1;
         self.next_event_id - 1
     }
 
     pub fn rand(&mut self) -> f64 {
-        self.rand.gen_range(0.0 .. 1.0)
+        self.rand.gen_range(0.0..1.0)
     }
 
     pub fn cancel_event(&mut self, event_id: u64) {
@@ -116,8 +116,8 @@ pub struct Simulation<E: Debug> {
 }
 
 impl<E: Debug> Simulation<E> {
-    pub fn new(seed: u64) -> Self {        
-        Self { 
+    pub fn new(seed: u64) -> Self {
+        Self {
             clock: R64::from_inner(0.0),
             actors: HashMap::new(),
             events: BinaryHeap::new(),
@@ -140,7 +140,9 @@ impl<E: Debug> Simulation<E> {
         let entry = EventEntry {
             id: self.event_count,
             time: self.clock + delay,
-            src, dest, event
+            src,
+            dest,
+            event,
         };
         let id = entry.id;
         self.events.push(entry);
@@ -158,10 +160,10 @@ impl<E: Debug> Simulation<E> {
                 // println!("{} {}->{} {:?}", e.time, e.src, e.dest, e.event);
                 self.clock = e.time;
                 let actor = self.actors.get(&e.dest);
-                let mut ctx = ActorContext{
-                    id: e.dest.clone(), 
-                    time: self.clock.into_inner(), 
-                    rand: &mut self.rand, 
+                let mut ctx = ActorContext {
+                    id: e.dest.clone(),
+                    time: self.clock.into_inner(),
+                    rand: &mut self.rand,
                     next_event_id: self.event_count,
                     events: Vec::new(),
                     canceled_events: Vec::new(),
@@ -199,7 +201,18 @@ impl<E: Debug> Simulation<E> {
     }
 
     pub fn step_until_no_events(&mut self) {
+        while self.step() {}
+    }
+
+    pub fn step_while(&mut self, f: fn(&E) -> bool) {
         while self.step() {
+            let mut has_matching_events = false;
+            for event in self.events.iter() {
+                has_matching_events = has_matching_events | f(&event.event);
+            }
+            if !has_matching_events {
+                return
+            }
         }
     }
 
